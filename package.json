@@ -1,0 +1,56 @@
+{
+  "name": "cryptologin-client",
+  "version": "1.0.0",
+  "description": "Client-side SDK for CryptoLogin - Server-Side Secret-Free · Zero-Storage Authentication · Zero-Knowledge-Inspired · Passwordless Authentication · Military-Grade Encryption · Zero-Knowledge-Inspired Passwordless Authentication",
+  "main": "dist/cryptologin-client.js",
+  "module": "dist/cryptologin-client.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.js",
+    "prepublishOnly": "npm run build",
+    "preversion": "npm run build"
+  },
+  "keywords": [
+    "cryptologin",
+    "authentication",
+    "passwordless",
+    "Zero-Knowledge-Inspired",
+   " Server-Side Secret-Free",
+   "Zero-Storage Authentication",
+    "security",
+    "Military-Grade Encryption",
+    "crypto"
+  ],
+  "author": "erabytse",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erabytse/cryptologin-client"
+  },
+  "bugs": {
+    "url": "https://github.com/erabytse/cryptologin-client/issues"
+  },
+  "homepage": "https://erabytse.github.io/cryptologin-website/",
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "rollup": "^4.0.0",
+    "rollup-plugin-dts": "^6.1.0"
+  }
+}

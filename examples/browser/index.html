@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CryptoLogin Client SDK - Browser Example</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0F0F1A;
+            color: #E0E0E0;
+        }
+        h1 { color: #F5A623; }
+        input, button { padding: 10px; margin: 5px; border-radius: 6px; border: 1px solid #2A2A4A; background: #1A1A2E; color: #E0E0E0; }
+        button { background: #F5A623; color: #0F0F1A; font-weight: bold; cursor: pointer; }
+        button:hover { background: #D4891B; }
+        pre { background: #1A1A2E; padding: 15px; border-radius: 6px; overflow: auto; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 6px; }
+        .success { background: #1a3a1a; color: #4CAF50; }
+        .error { background: #3a1a1a; color: #FF5252; }
+        .info { background: #1a1a3a; color: #00D4FF; }
+    </style>
+</head>
+<body>
+    <h1>🔐 CryptoLogin Client SDK</h1>
+    <p>Exemple d'utilisation dans le navigateur.</p>
+
+    <div>
+        <label>Master Secret :</label>
+        <input type="password" id="secret" placeholder="Minimum 32 caractères" style="width:100%;" />
+        <small style="color:#888;">Le secret ne quitte jamais votre navigateur.</small>
+    </div>
+    <br />
+
+    <button id="btnRegister">📝 S'enregistrer</button>
+    <button id="btnLogin">🔑 Se connecter</button>
+    <button id="btnLogout" disabled>🚪 Déconnexion</button>
+
+    <div id="status" class="status info">Prêt à commencer</div>
+    <pre id="output">Les résultats apparaîtront ici...</pre>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "cryptologin-client": "./node_modules/cryptologin-client/dist/cryptologin-client.esm.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import { createClient } from 'cryptologin-client';
+
+        const API_BASE_URL = 'https://api.docudeeper.com/api/v1';
+        const client = createClient({ baseURL: API_BASE_URL });
+
+        const secretInput = document.getElementById('secret');
+        const statusEl = document.getElementById('status');
+        const outputEl = document.getElementById('output');
+
+        function setStatus(msg, type = 'info') {
+            statusEl.textContent = msg;
+            statusEl.className = `status ${type}`;
+        }
+
+        function showResult(data) {
+            outputEl.textContent = JSON.stringify(data, null, 2);
+        }
+
+        document.getElementById('btnRegister').addEventListener('click', async () => {
+            const secret = secretInput.value.trim();
+            if (secret.length < 32) {
+                setStatus('❌ Le secret doit faire au moins 32 caractères.', 'error');
+                return;
+            }
+            try {
+                setStatus('📝 Enregistrement...', 'info');
+                const userId = await client.register(secret, { name: 'Exemple Browser' });
+                setStatus('✅ Utilisateur enregistré !', 'success');
+                showResult({ action: 'register', userId });
+            } catch (err) {
+                setStatus(`❌ Erreur : ${err.message}`, 'error');
+                showResult({ error: err.message });
+            }
+        });
+
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const secret = secretInput.value.trim();
+            if (secret.length < 32) {
+                setStatus('❌ Le secret doit faire au moins 32 caractères.', 'error');
+                return;
+            }
+            try {
+                setStatus('🔑 Connexion...', 'info');
+                const session = await client.login(secret);
+                setStatus('✅ Connecté !', 'success');
+                showResult(session);
+                document.getElementById('btnLogout').disabled = false;
+            } catch (err) {
+                setStatus(`❌ Erreur : ${err.message}`, 'error');
+                showResult({ error: err.message });
+            }
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', async () => {
+            try {
+                await client.logout();
+                setStatus('👋 Déconnecté.', 'info');
+                showResult({ action: 'logout' });
+                document.getElementById('btnLogout').disabled = true;
+            } catch (err) {
+                setStatus(`❌ Erreur : ${err.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>
