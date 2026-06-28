@@ -14,7 +14,7 @@
 */
 
 
-import { deriveUserId, isValidUserId, decryptChallenge  } from './crypto.js';
+import { deriveUserId, isValidUserId, computeHmac } from './crypto.js';
 
 /**
  * Client CryptoLogin
@@ -162,17 +162,17 @@ export class CryptoLoginClient {
     }
 
     /**
-     * Log in a user
-     * 
+     * Log in a user (V2 - Zero-Knowledge with HMAC)
+     *  
      * @param {string} masterSecret - The Master Secret
      * @returns {Promise<Object>} - Session
      */
     async login(masterSecret) {
-        // 1. Deriving user_id (client-side)
+        // 1. Derive user_id (client-side)
         const userId = await deriveUserId(masterSecret);
         this._userId = userId;
         
-        // 2. Initiate the login – obtain the encrypted challenge
+        // 2. Get plaintext challenge from server
         const initResponse = await this._request('/auth/login/init_v2', {
             method: 'POST',
             body: { user_id: userId }
@@ -182,18 +182,20 @@ export class CryptoLoginClient {
             throw new Error('No challenge received from server');
         }
         
-        const encryptedChallenge = initResponse.challenge;
+        const challenge = initResponse.challenge;
+        console.log(`🔑 Challenge received: ${challenge.substring(0, 32)}...`);
         
-        // 3. DECRYPT the challenge locally with master_secret (CRITICAL!)
-        console.log('🔓 Decrypting challenge locally...');
-        const decryptedChallenge = await decryptChallenge(encryptedChallenge, masterSecret);
-
-        // 4. Verify the login – send the DECRYPTED plaintext
+        // 3. Compute HMAC(challenge, user_id) - PROOF that client knows master_secret
+        console.log('🔐 Computing HMAC locally...');
+        const hmacSignature = await computeHmac(userId, challenge);
+        console.log(`✅ HMAC computed: ${hmacSignature.substring(0, 32)}...`);
+        
+        // 4. Send HMAC to server for verification
         const verifyResponse = await this._request('/auth/login/verify_v2', {
             method: 'POST',
             body: {
                 user_id: userId,
-                challenge_response: decryptedChallenge  
+                challenge_response: hmacSignature  // Send HMAC, not encrypted challenge!
             }
         });
         
@@ -201,7 +203,7 @@ export class CryptoLoginClient {
             throw new Error(verifyResponse.message || 'Authentication failed');
         }
         
-        // 4. Save the session
+        // 5. Save the session
         this._sessionId = verifyResponse.session_id;
         this._expiresAt = verifyResponse.expires_at ? new Date(verifyResponse.expires_at) : null;
         

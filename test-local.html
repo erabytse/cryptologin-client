@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CryptoLogin SDK - Local Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .section h3 { margin-top: 0; color: #007bff; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log .success { color: #4ec9b0; }
+        .log .error { color: #f48771; }
+        .log .info { color: #569cd6; }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 CryptoLogin SDK - Local Test</h1>
+        <p>Testing with API: <code>https://api.docudeeper.com/api/v1</code></p>
+
+        <div class="section">
+            <h3>Step 1: Master Secret (min 32 chars)</h3>
+            <input 
+                type="password" 
+                id="masterSecret" 
+                placeholder="Enter your master secret (min 32 chars)"
+                value="this-is-a-test-master-secret-1234567890"
+            >
+            <button id="deriveBtn">1. Derive User ID (test only)</button>
+            <div id="userIdStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 2: Register</h3>
+            <button id="registerBtn">2. Register User</button>
+            <div id="registerStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 3: Login</h3>
+            <button id="loginBtn">3. Login</button>
+            <div id="loginStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 4: Session Info</h3>
+            <button id="sessionInfoBtn">4. Show Session</button>
+            <div id="sessionStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 5: Logout</h3>
+            <button id="logoutBtn">5. Logout</button>
+            <div id="logoutStatus"></div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Console Log</h3>
+            <button id="clearLogBtn">Clear Log</button>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import depuis les fichiers locaux
+        import { createClient, deriveUserId } from './src/index.js';
+
+        let client;
+
+        function initClient() {
+            try {
+                client = createClient({
+                    baseURL: 'https://api.docudeeper.com/api/v1',
+                    timeout: 30000
+                });
+                log('✅ Client initialized with baseURL: https://api.docudeeper.com/api/v1', 'success');
+                return true;
+            } catch (error) {
+                log(`❌ Init failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Test 1: Derive User ID (juste pour voir)
+        document.getElementById('deriveBtn').addEventListener('click', async () => {
+            const masterSecret = document.getElementById('masterSecret').value;
+            
+            if (!masterSecret || masterSecret.length < 32) {
+                showStatus('userIdStatus', '❌ Min 32 characters required', 'error');
+                return;
+            }
+
+            log('🔐 Deriving user_id from master_secret...', 'info');
+            
+            try {
+                const userId = await deriveUserId(masterSecret);
+                log(`✅ User ID derived: ${userId.substring(0, 32)}...`, 'success');
+                showStatus('userIdStatus', `✅ User ID: ${userId.substring(0, 32)}...`, 'success');
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                showStatus('userIdStatus', `❌ ${error.message}`, 'error');
+            }
+        });
+
+        // Test 2: Register (prend masterSecret directement)
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const masterSecret = document.getElementById('masterSecret').value;
+            
+            if (!masterSecret || masterSecret.length < 32) {
+                showStatus('registerStatus', '❌ Min 32 characters required', 'error');
+                return;
+            }
+
+            log('📡 Registering user...', 'info');
+            
+            try {
+                const userId = await client.register(masterSecret, { test: true });
+                log(`✅ Registered! User ID: ${userId.substring(0, 32)}...`, 'success');
+                showStatus('registerStatus', '✅ User registered successfully', 'success');
+            } catch (error) {
+                log(`❌ Register failed: ${error.message}`, 'error');
+                showStatus('registerStatus', `❌ ${error.message}`, 'error');
+            }
+        });
+
+        // Test 3: Login (prend masterSecret directement)
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const masterSecret = document.getElementById('masterSecret').value;
+            
+            if (!masterSecret || masterSecret.length < 32) {
+                showStatus('loginStatus', '❌ Min 32 characters required', 'error');
+                return;
+            }
+
+            log('📡 Logging in...', 'info');
+            
+            try {
+                const session = await client.login(masterSecret);
+                
+                if (session.authenticated) {
+                    log(`✅ Login successful!`, 'success');
+                    log(`   Session ID: ${session.sessionId}`, 'info');
+                    log(`   User ID: ${session.userId}`, 'info');
+                    log(`   Expires: ${session.expiresAt}`, 'info');
+                    showStatus('loginStatus', '✅ Logged in successfully', 'success');
+                } else {
+                    log('❌ Not authenticated', 'error');
+                    showStatus('loginStatus', '❌ Login failed', 'error');
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+                showStatus('loginStatus', `❌ ${error.message}`, 'error');
+            }
+        });
+
+        // Test 4: Show session info
+        document.getElementById('sessionInfoBtn').addEventListener('click', () => {
+            log('📂 Session info:', 'info');
+            log(`   Authenticated: ${client.isAuthenticated}`, 'info');
+            log(`   Session ID: ${client.sessionId}`, 'info');
+            log(`   User ID: ${client.userId}`, 'info');
+            showStatus('sessionStatus', '✅ Session info logged', 'success');
+        });
+
+        // Test 5: Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            log('🚪 Logging out...', 'info');
+            
+            try {
+                await client.logout();
+                log('✅ Logged out', 'success');
+                showStatus('logoutStatus', '✅ Logged out', 'success');
+            } catch (error) {
+                log(`❌ Logout error: ${error.message}`, 'error');
+                showStatus('logoutStatus', `❌ ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('clearLogBtn').addEventListener('click', () => {
+            document.getElementById('log').innerHTML = '';
+        });
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<span class="${type}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            log('🚀 CryptoLogin SDK Test initialized', 'info');
+            initClient();
+        });
+    </script>
+</body>
+</html>

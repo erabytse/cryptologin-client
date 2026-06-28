@@ -10,69 +10,16 @@
  * @license MIT
  * 
  * CryptoLogin Client SDK – Cryptographic Operations
- * Uses the browser’s Web Crypto API
+ * Uses the browser's Web Crypto API
+ * 
+ * V2 Flow: HMAC-based Zero-Knowledge Authentication
  */
-
-/**
- * Decrypt a challenge token using the master_secret
- * Uses AES-256-GCM with PBKDF2-derived key
- *
- * @param {string} encryptedChallenge - Base64 encoded encrypted challenge
- * @param {string} masterSecret - The master secret
- * @returns {Promise<string>} - Decrypted plaintext challenge
- */
-export async function decryptChallenge(encryptedChallenge, masterSecret) {
-  const encoder = new TextEncoder();
-  const secretData = encoder.encode(masterSecret);
-  const salt = encoder.encode('cryptologin-v2-salt');
-
-  try {
-    // Derive the decryption key (same as user_id derivation)
-    const key = await crypto.subtle.importKey(
-      'raw',
-      secretData,
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
-    );
-
-    const derivedKey = await crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: 100000,
-        hash: 'SHA-512'
-      },
-      key,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-
-    // Decode the encrypted data (assuming it's base64 with IV prepended)
-    const encryptedBytes = Uint8Array.from(atob(encryptedChallenge), c => c.charCodeAt(0));
-    const iv = encryptedBytes.slice(0, 12); // First 12 bytes = IV
-    const ciphertext = encryptedBytes.slice(12);
-
-    // Decrypt
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv },
-      derivedKey,
-      ciphertext
-    );
-
-    return new TextDecoder().decode(decrypted);
-  } catch (error) {
-    throw new Error(`Failed to decrypt challenge: ${error.message}`);
-  }
-}
 
 
 /**
  * Derive a user_id from the master_secret
- * Use PBKDF2-SHA512 with 100,000 iterations
- * 
- * @param {string} masterSecret - The secret master (minimum 32 characters)
+ * Uses PBKDF2-SHA512 with 100,000 iterations
+ * @param {string} masterSecret - The master secret (minimum 32 characters)
  * @returns {Promise<string>} - user_id (64 hexadecimal characters)
  */
 export async function deriveUserId(masterSecret) {
@@ -85,7 +32,6 @@ export async function deriveUserId(masterSecret) {
     const salt = encoder.encode('cryptologin-v2-salt');
 
     try {
-        // Import the key for PBKDF2
         const key = await crypto.subtle.importKey(
             'raw',
             secretData,
@@ -94,7 +40,6 @@ export async function deriveUserId(masterSecret) {
             ['deriveBits']
         );
 
-        // Derive 256 bits (32 bytes)
         const derivedBits = await crypto.subtle.deriveBits(
             {
                 name: 'PBKDF2',
@@ -106,7 +51,6 @@ export async function deriveUserId(masterSecret) {
             256
         );
 
-        // Convert to hexadecimal
         const hashArray = Array.from(new Uint8Array(derivedBits));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     } catch (error) {
@@ -115,20 +59,53 @@ export async function deriveUserId(masterSecret) {
 }
 
 /**
- * Checks whether a user_id is valid (64 hex characters)
+ * Compute HMAC-SHA256 of a challenge using user_id as key
+ * This is the cryptographic proof that the client knows the master_secret
+ * (because only the client can derive user_id from master_secret)
  * 
+ * @param {string} userId - The user_id (used as HMAC key)
+ * @param {string} challenge - The challenge to sign
+ * @returns {Promise<string>} - HMAC signature (64 hex characters)
+ */
+export async function computeHmac(userId, challenge) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(userId);
+    const messageData = encoder.encode(challenge);
+
+    try {
+        // Import the key (user_id)
+        const key = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+
+        // Sign the challenge
+        const signature = await crypto.subtle.sign('HMAC', key, messageData);
+
+        // Convert to hex string
+        const hashArray = Array.from(new Uint8Array(signature));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (error) {
+        throw new Error(`Failed to compute HMAC: ${error.message}`);
+    }
+}
+
+/**
+ * Checks whether a user_id is valid (64 hex characters)
  * @param {string} userId - The user_id to be validated
  * @returns {boolean}
  */
 export function isValidUserId(userId) {
-    return typeof userId === 'string' && 
-           userId.length === 64 && 
+    return typeof userId === 'string' &&
+           userId.length === 64 &&
            /^[0-9a-f]{64}$/i.test(userId);
 }
 
 /**
  * Generates a random challenge (for demonstration purposes)
- * 
  * @param {number} length - Length in bytes
  * @returns {string} - Hexadecimal Challenge
  */
