@@ -4,26 +4,15 @@
  * Copyright (c) 2026 erabytse
  * Licensed under the MIT License
  * @author erabytse
- * @version 1.2.1
+ * @version 1.2.3
  * @license MIT
  */
 
-// ✅ IMPORT local (pas juste re-export) pour pouvoir utiliser dans createClient
+// Import pour pouvoir les réutiliser dans export default
 import { CryptoLoginClient } from './core/client.js';
-
-// Re-exports pour les consommateurs du SDK
-export { CryptoLoginClient } from './core/client.js';
-export { deriveUserId, decryptChallenge, isValidUserId, generateChallenge } from './core/crypto.js';
-
-// Utility exports (seulement ce qui existe dans helpers.js)
-export {
-  saveSession,
-  loadSession,
-  clearSession
-} from './utils/helpers.js';
-
-// Error exports
-export {
+import { deriveUserId, computeHmac, isValidUserId, generateChallenge } from './core/crypto.js';
+import { saveSession, loadSession, clearSession } from './utils/helpers.js';
+import {
   CryptoLoginError,
   AuthenticationError,
   NetworkError,
@@ -32,12 +21,30 @@ export {
   SessionExpiredError
 } from './core/errors.js';
 
+// Re-export tout
+export {
+  CryptoLoginClient,
+  deriveUserId,
+  computeHmac,
+  isValidUserId,
+  generateChallenge,
+  saveSession,
+  loadSession,
+  clearSession,
+  CryptoLoginError,
+  AuthenticationError,
+  NetworkError,
+  DecryptionError,
+  ConfigurationError,
+  SessionExpiredError
+};
+
 // Version
-export const VERSION = '1.2.1';
+export const VERSION = '1.2.3';
 
 /**
  * Quick initialization helper
- * @param {Object} config
+ * @param {Object} config - Configuration object
  * @param {string} config.baseURL - API base URL
  * @param {number} [config.timeout=10000] - Request timeout in ms
  * @returns {CryptoLoginClient}
@@ -46,7 +53,6 @@ export function createClient(config) {
   if (!config || !config.baseURL) {
     throw new Error('baseURL is required');
   }
-  // ✅ Passer l'objet config directement (le constructeur attend un objet)
   return new CryptoLoginClient(config);
 }
 
@@ -54,5 +60,12 @@ export function createClient(config) {
 export default {
   CryptoLoginClient,
   createClient,
+  deriveUserId,
+  computeHmac,
+  isValidUserId,
+  generateChallenge,
+  saveSession,
+  loadSession,
+  clearSession,
   VERSION
 };
