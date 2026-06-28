@@ -1,8 +1,12 @@
 # CryptoLogin Client SDK
 
 [![npm version](https://img.shields.io/npm/v/cryptologin-client.svg)](https://www.npmjs.com/package/cryptologin-client)
+[![Tests](https://github.com/erabytse/cryptologin-client/actions/workflows/test.yml/badge.svg)](https://github.com/erabytse/cryptologin-client/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Bundle Size](https://img.shields.io/bundlephobia/min/cryptologin-client)](https://bundlephobia.com/package/cryptologin-client)
+[![npm downloads](https://img.shields.io/npm/dm/cryptologin-client.svg)](https://www.npmjs.com/package/cryptologin-client)
+
+**Zero-Storage Authentication Client SDK** - The server knows absolutely nothing about your users.
 
 Client-side JavaScript SDK for [CryptoLogin](https://github.com/erabytse/CryptoLogin) - Zero-Knowledge-Inspired Passwordless Authentication.
 
@@ -18,6 +22,62 @@ CryptoLogin uses a challenge-response mechanism inspired by Zero-Knowledge princ
 The server never stores your secret. Your secret never leaves your device.
 
 </div>
+
+### 🚀 Quick Start
+
+´´´bash
+npm install cryptologin-client
+
+```javascript
+import { createClient, deriveUserId } from "cryptologin-client";
+
+// Initialize
+const client = createClient({
+  baseURL: "https://your-api.com/api/v1",
+});
+
+// Register
+const userId = await deriveUserId("your-master-secret-min-32-chars.");
+await client.register(userId);
+
+// Login
+const session = await client.login(userId, "your-master-secret-min-32-chars.");
+console.log("Authenticated:", session.authenticated);
+```
+
+## 🔒 Security Model
+
+| Feature                | Traditional Auth    | CryptoLogin          |
+| ---------------------- | ------------------- | -------------------- |
+| Password storage       | Hashed on server    | Never stored         |
+| Database breach impact | Credentials exposed | Nothing to steal     |
+| "Forgot Password"      | Email reset         | Impossible by design |
+| User sovereignty       | Low                 | Absolute             |
+
+CryptoLogin uses a **Zero-Storage Authentication** model:
+
+1. **Client-side derivation**: The `user_id` is derived from `master_secret` using PBKDF2-SHA512 (100,000 iterations)
+2. **Challenge-Response**: Server generates encrypted challenges using AES-256-GCM
+3. **Local decryption**: Client decrypts challenges locally - `master_secret` NEVER leaves the browser
+4. **No server secrets**: Server stores only encrypted tokens, not passwords or secrets
+
+### Cryptographic Standards
+
+- **Key Derivation**: PBKDF2-SHA512 (100,000 iterations)
+- **Encryption**: AES-256-GCM
+- **Hashing**: SHA-256
+
+## ⚠️ Important Trade-offs
+
+**CryptoLogin is NOT for everyone:**
+
+- ❌ No "Forgot Password" flow (server knows nothing)
+- ❌ If user loses `master_secret`, account is permanently locked
+- ✅ Absolute data sovereignty
+- ✅ Zero server-side secrets to steal
+- ✅ Immune to database breaches
+
+**This is a deliberate design choice, not a bug.**
 
 ## Features
 
@@ -38,29 +98,9 @@ yarn add cryptologin-client
 pnpm add cryptologin-client
 ```
 
-### 🚀 Quick Start
+---
 
-```javascript
-import { createClient } from "cryptologin-client";
-
-// Initialize the client
-const client = createClient({
-  baseURL: "https://api.docudeeper.com/api/v1",
-});
-
-// Register a new user
-const userId = await client.register(masterSecret, {
-  name: "John Doe",
-  email: "john@example.com",
-});
-
-// Login
-const session = await client.login(masterSecret);
-console.log("Authenticated!", session.sessionId);
-
-// Logout
-await client.logout();
-```
+📖 API Documentation
 
 **API Reference**
 
@@ -78,29 +118,37 @@ await client.logout();
 
 ```javascript
 const client = createClient({
-  baseURL: "https://api.docudeeper.com/api/v1",
-  timeout: 5000,
-  onError: (error) => console.error(error),
+  baseURL: "https://api.example.com/v1", // Required
+  timeout: 30000, // Optional, default: 30000ms
 });
 ```
 
-> **client.register(masterSecret, userData)**
+> **deriveUserId(masterSecret)**
 >
-> > Registers a new user.
+> > Derives a unique user ID from the master secret. Minimum 32 characters required.
 
 ```javascript
-const userId = await client.register("my-secret-32-chars", {
-  name: "Jane Doe",
+const userId = await deriveUserId("my-super-secret-passphrase-1234567890");
+// Returns: 64-character hex string
+```
+
+> **client.register(userId)**
+>
+> > Registers a new user with the server.
+
+```javascript
+const result = await client.register(userId);
+// Returns: { success: true, userId: '...' }
 });
 ```
 
-> **client.login(masterSecret)**
+> **client.login(userId, masterSecret)**
 >
-> > Logs in a user.
+> > Authenticates the user using challenge-response.
 
 ```javascript
-const session = await client.login("my-secret-32-chars");
-// { sessionId, userId, expiresAt, authenticated }
+const session = await client.login(userId, masterSecret);
+// Returns: { authenticated: true, sessionId: '...' }
 ```
 
 > **client.logout()**
@@ -111,58 +159,85 @@ const session = await client.login("my-secret-32-chars");
 await client.logout();
 ```
 
-> **deriveUserId(masterSecret)**
->
-> > Derives a user_id from the master secret.
+**Session Management**
 
 ```javascript
-import { deriveUserId } from "cryptologin-client";
-const userId = await deriveUserId("my-secret-32-chars");
+import { saveSession, loadSession, clearSession } from "cryptologin-client";
+
+// Save session after login
+saveSession(session);
+
+// Load existing session
+const session = loadSession();
+
+// Clear session (logout)
+clearSession();
 ```
 
 ---
 
-### Browser Usage (CDN)
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/cryptologin-client/dist/cryptologin-client.min.js"></script>
-<script>
-  const client = CryptoLoginClient.createClient({
-    baseURL: "https://api.docudeeper.com/api/v1",
-  });
-</script>
-```
-
----
-
-### Development
+🧪 **Development & Testing**
 
 ```bash
 # Install dependencies
 npm install
 
-# Build the library
-npm run build
-
 # Run tests
 npm test
 
-# Watch for changes
-npm run dev
+# Run tests with coverage
+npm run test:coverage
+
+# Watch mode
+npm test -- --watch
 ```
 
-## License
+📦 **Publishing**
 
-    Apache 2.0
+```bash
+npm version patch  # or minor/major
+npm publish
+```
+
+---
+
+**🤝 Contributing**
+
+Contributions are welcome! Please read our Contributing Guide for details.
+
+---
+
+## 📄 License
+
+MIT © [erabytse](https://github.com/erabytse)
+
+---
 
 ## Author
 
-    erabytse
+[**erabytse**](https://github.com/erabytse)
 
-## Links
+---
+
+## 🔗 Links
+
+. [Server SDK (Python): cryptologin on PyPI](https://pypi.org/project/cryptologin/)
 
 . [CryptoLogin GitHub](https://github.com/erabytse/CryptoLogin)
 
 . [Live Demo](https://erabytse.github.io/cryptologin-website/)
 
+. [Website: cryptologin-website](https://erabytse.github.io/cryptologin-website/)
+
 . [PyPI Package](https://pypi.org/project/cryptologin/)
+
+---
+
+<div align="center">
+Built with ❤️ by <b>erabytse</b>
+
+Reinventing Authentication. One Secret at a Time.
+
+A quiet rebellion against digital waste.
+
+</div>

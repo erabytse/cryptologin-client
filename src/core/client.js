@@ -1,10 +1,20 @@
 // Implement JS logic for client.js
 /**
+ * CryptoLogin Client SDK
+ * Zero-storage authentication system
+ * Copyright (c) 2026 erabytse
+ * Licensed under the MIT License
+ * 
+ * @author erabytse
+ * @version 1.0.0
+ * @license MIT
+ * 
  * CryptoLogin Client SDK – Principal Client
  * Handles authentication with the server
- */
+*/
 
-import { deriveUserId, isValidUserId } from './crypto.js';
+
+import { deriveUserId, isValidUserId, decryptChallenge  } from './crypto.js';
 
 /**
  * Client CryptoLogin
@@ -174,12 +184,16 @@ export class CryptoLoginClient {
         
         const encryptedChallenge = initResponse.challenge;
         
-        // 3. Verify the login – resend the encrypted challenge
+        // 3. DECRYPT the challenge locally with master_secret (CRITICAL!)
+        console.log('🔓 Decrypting challenge locally...');
+        const decryptedChallenge = await decryptChallenge(encryptedChallenge, masterSecret);
+
+        // 4. Verify the login – send the DECRYPTED plaintext
         const verifyResponse = await this._request('/auth/login/verify_v2', {
             method: 'POST',
             body: {
                 user_id: userId,
-                challenge_response: encryptedChallenge
+                challenge_response: decryptedChallenge  
             }
         });
         

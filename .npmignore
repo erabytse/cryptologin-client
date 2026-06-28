@@ -1,0 +1,27 @@
+# Tests
+tests/
+coverage/
+.nyc_output/
+
+# Development
+.git
+.gitignore
+.vscode/
+.idea/
+*.log
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docs (keep README, exclude dev docs)
+docs/
+*.md
+!README.md
+
+# Misc
+.DS_Store
+Thumbs.db
+*.test.js
+*.spec.js

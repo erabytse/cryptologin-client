@@ -1,8 +1,72 @@
 // Implement JS logic for crypto.js
 /**
+ * CryptoLogin Client SDK
+ * Zero-storage authentication system
+ * Copyright (c) 2026 erabytse
+ * Licensed under the MIT License
+ * 
+ * @author erabytse
+ * @version 1.0.0
+ * @license MIT
+ * 
  * CryptoLogin Client SDK – Cryptographic Operations
  * Uses the browser’s Web Crypto API
  */
+
+/**
+ * Decrypt a challenge token using the master_secret
+ * Uses AES-256-GCM with PBKDF2-derived key
+ *
+ * @param {string} encryptedChallenge - Base64 encoded encrypted challenge
+ * @param {string} masterSecret - The master secret
+ * @returns {Promise<string>} - Decrypted plaintext challenge
+ */
+export async function decryptChallenge(encryptedChallenge, masterSecret) {
+  const encoder = new TextEncoder();
+  const secretData = encoder.encode(masterSecret);
+  const salt = encoder.encode('cryptologin-v2-salt');
+
+  try {
+    // Derive the decryption key (same as user_id derivation)
+    const key = await crypto.subtle.importKey(
+      'raw',
+      secretData,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-512'
+      },
+      key,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+
+    // Decode the encrypted data (assuming it's base64 with IV prepended)
+    const encryptedBytes = Uint8Array.from(atob(encryptedChallenge), c => c.charCodeAt(0));
+    const iv = encryptedBytes.slice(0, 12); // First 12 bytes = IV
+    const ciphertext = encryptedBytes.slice(12);
+
+    // Decrypt
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      derivedKey,
+      ciphertext
+    );
+
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    throw new Error(`Failed to decrypt challenge: ${error.message}`);
+  }
+}
+
 
 /**
  * Derive a user_id from the master_secret
