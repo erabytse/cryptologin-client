@@ -4,7 +4,7 @@
  * Copyright (c) 2026 erabytse
  * Licensed under the MIT License
  * @author erabytse
- * @version 1.2.4
+ * @version 1.2.5
  * @license MIT
  */
 
@@ -40,7 +40,7 @@ export {
 };
 
 // Version
-export const VERSION = '1.2.4';
+export const VERSION = '1.2.5';
 
 /**
  * Quick initialization helper
