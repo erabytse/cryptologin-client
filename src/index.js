@@ -8,10 +8,10 @@
  * @license MIT
  */
 
-// Core imports (adjust paths if your folder structure differs)
-import { CryptoLoginClient, createClient } from './core/client.js';
+// Core imports
+import { CryptoLoginClient } from './core/client.js';
 import { deriveUserId, computeHmac, isValidUserId, generateChallenge } from './core/crypto.js';
-import { saveSession, loadSession, clearSession } from './utils/helpers.js';
+import { saveSession, loadSession, clearSession } from './utils/helpers.js'; 
 import {
     CryptoLoginError,
     AuthenticationError,
@@ -21,10 +21,9 @@ import {
     SessionExpiredError
 } from './core/errors.js';
 
-// Re-export everything for tree-shaking and named imports
+// Re-export tout (Named exports uniquement, c'est le standard moderne)
 export {
     CryptoLoginClient,
-    createClient,
     deriveUserId,
     computeHmac,
     isValidUserId,
@@ -43,16 +42,16 @@ export {
 // Version
 export const VERSION = '1.2.4';
 
-// Default export for backward compatibility
-export default {
-    CryptoLoginClient,
-    createClient,
-    deriveUserId,
-    computeHmac,
-    isValidUserId,
-    generateChallenge,
-    saveSession,
-    loadSession,
-    clearSession,
-    VERSION
-};
+/**
+ * Quick initialization helper
+ * @param {Object} config - Configuration object
+ * @param {string} config.baseURL - API base URL
+ * @param {number} [config.timeout=10000] - Request timeout in ms
+ * @returns {CryptoLoginClient}
+ */
+export function createClient(config) {
+    if (!config || !config.baseURL) {
+        throw new ConfigurationError('baseURL is required');
+    }
+    return new CryptoLoginClient(config);
+}
