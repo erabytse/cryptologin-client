@@ -18,7 +18,7 @@ Client-side JavaScript SDK for [CryptoLogin](https://github.com/erabytse/CryptoL
 
 **Stop storing password hashes. With CryptoLogin, the server only stores encrypted challenges. The master secret is used once at registration, then forgotten. At login, no secret ever crosses the network.**
 
-<img src="https://raw.githubusercontent.com/erabytse/CryptoLogin/main/images/CryptoLogin.gif" width="320" height="170" alt="CryptoLogin"/>
+<img src="https://github.com/user-attachments/assets/68e82af9-d4bf-4d77-863a-b2fd38fdf390" width="320" height="170" alt="CryptoLogin"/>
 
 CryptoLogin uses a challenge-response mechanism inspired by Zero-Knowledge principles.
 The server never stores your secret. Your secret never leaves your device.
