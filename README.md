@@ -2,9 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/cryptologin-client.svg)](https://www.npmjs.com/package/cryptologin-client)
 [![Tests](https://github.com/erabytse/cryptologin-client/actions/workflows/test.yml/badge.svg)](https://github.com/erabytse/cryptologin-client/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Bundle Size](https://img.shields.io/bundlephobia/min/cryptologin-client)](https://bundlephobia.com/package/cryptologin-client)
 [![npm downloads](https://img.shields.io/npm/dm/cryptologin-client.svg)](https://www.npmjs.com/package/cryptologin-client)
+
+
 
 **Zero-Storage Authentication Client SDK** - The server knows absolutely nothing about your users.
 
