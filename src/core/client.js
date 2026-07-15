@@ -1,56 +1,42 @@
-// Implement JS logic for client.js
 /**
  * CryptoLogin Client SDK
  * Zero-storage authentication system
  * Copyright (c) 2026 erabytse
  * Licensed under the MIT License
- * 
  * @author erabytse
- * @version 1.0.0
+ * @version 1.2.4
  * @license MIT
  * 
- * CryptoLogin Client SDK – Principal Client
+ * Principal Client
  * Handles authentication with the server
-*/
-
+ */
 
 import { deriveUserId, isValidUserId, computeHmac } from './crypto.js';
+import { NetworkError, AuthenticationError, ConfigurationError } from './errors.js';
 
 /**
  * Client CryptoLogin
- * 
  * @example
- * ```javascript
- * import { CryptoLoginClient } from 'cryptologin-client';
- * 
- * const client = new CryptoLoginClient({
- *     baseURL: 'https://api.docudeeper.com/api/v1'
- * });
- * 
- * // Enregistrement
+ * import { createClient } from 'cryptologin-client';
+ * const client = createClient({ baseURL: 'https://api.docudeeper.com/api/v1' });
  * const userId = await client.register(masterSecret, { name: 'John' });
- * 
- * // Login
- * const session = await client.login(masterSecret);
- * ```
  */
 export class CryptoLoginClient {
     /**
      * @param {Object} options
-     * @param {string} options.baseURL - Base URL of the API (ex: https://api.docudeeper.com/api/v1)
-     * @param {number} options.timeout - Request timeout in ms (default: 10000)
-     * @param {Function} options.onError - Error callback (optional)
+     * @param {string} options.baseURL - Base URL of the API
+     * @param {number} [options.timeout=10000] - Request timeout in ms
+     * @param {Function} [options.onError] - Error callback (optional)
      */
     constructor(options = {}) {
         if (!options.baseURL) {
-            throw new Error('baseURL is required');
+            throw new ConfigurationError('baseURL is required');
         }
-        
         this.baseURL = options.baseURL.replace(/\/+$/, '');
         this.timeout = options.timeout || 10000;
         this.onError = options.onError || null;
         
-        // Status of the session
+        // Session status
         this._sessionId = null;
         this._userId = null;
         this._expiresAt = null;
@@ -88,13 +74,11 @@ export class CryptoLoginClient {
      */
     async _request(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
-        
         const headers = {
             'Content-Type': 'application/json',
             ...options.headers
         };
 
-        // Add the authentication token, if available
         if (this.isAuthenticated && this._sessionId) {
             headers['Authorization'] = `Bearer ${this._sessionId}`;
         }
@@ -103,48 +87,54 @@ export class CryptoLoginClient {
             method: options.method || 'POST',
             headers,
             body: options.body ? JSON.stringify(options.body) : undefined,
-            signal: AbortSignal.timeout(this.timeout)
+            signal: AbortSignal.timeout ? AbortSignal.timeout(this.timeout) : undefined
         };
 
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
-            
+            const data = await response.json().catch(() => ({})); // Prevent crash on non-JSON error responses
+
             if (!response.ok) {
-                const error = new Error(data.detail || data.message || `HTTP ${response.status}`);
-                error.status = response.status;
-                error.data = data;
+                const errorMsg = data.detail || data.message || `HTTP ${response.status}`;
+                
+                // Use specific error classes for better DX (Developer Experience)
+                const error = (response.status === 401 || response.status === 403)
+                    ? new AuthenticationError(errorMsg)
+                    : new NetworkError(errorMsg, response.status);
+                    
+                error.data = data; // Attach server response for debugging
                 
                 if (this.onError) {
                     this.onError(error);
                 }
-                
                 throw error;
             }
-            
             return data;
         } catch (error) {
-            if (error.name === 'TimeoutError') {
-                const timeoutError = new Error('Request timeout');
-                timeoutError.status = 408;
+            if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
+                const timeoutError = new NetworkError('Request timeout', 408);
+                if (this.onError) this.onError(timeoutError);
                 throw timeoutError;
             }
-            throw error;
+            // Re-throw if it's already our custom error, otherwise wrap it
+            if (error instanceof NetworkError || error instanceof AuthenticationError) {
+                throw error;
+            }
+            const networkError = new NetworkError(`Request failed: ${error.message}`);
+            if (this.onError) this.onError(networkError);
+            throw networkError;
         }
     }
 
     /**
      * Register a new user
-     * 
      * @param {string} masterSecret - The Master Secret
-     * @param {Object} userData - User data (optional)
+     * @param {Object} [userData={}] - User data (optional)
      * @returns {Promise<string>} - user_id
      */
     async register(masterSecret, userData = {}) {
-        // 1. Deriving user_id (client-side)
         const userId = await deriveUserId(masterSecret);
         
-        // 2. Submit the registration request
         const response = await this._request('/auth/register_v2', {
             method: 'POST',
             body: {
@@ -154,7 +144,7 @@ export class CryptoLoginClient {
         });
         
         if (!response.success && !response.data?.user_id) {
-            throw new Error(response.message || 'Registration failed');
+            throw new AuthenticationError(response.message || 'Registration failed');
         }
         
         this._userId = userId;
@@ -163,47 +153,41 @@ export class CryptoLoginClient {
 
     /**
      * Log in a user (V2 - Zero-Knowledge with HMAC)
-     *  
      * @param {string} masterSecret - The Master Secret
      * @returns {Promise<Object>} - Session
      */
     async login(masterSecret) {
-        // 1. Derive user_id (client-side)
         const userId = await deriveUserId(masterSecret);
         this._userId = userId;
-        
-        // 2. Get plaintext challenge from server
+
         const initResponse = await this._request('/auth/login/init_v2', {
             method: 'POST',
             body: { user_id: userId }
         });
         
         if (!initResponse.challenge) {
-            throw new Error('No challenge received from server');
+            throw new AuthenticationError('No challenge received from server');
         }
         
         const challenge = initResponse.challenge;
         console.log(`🔑 Challenge received: ${challenge.substring(0, 32)}...`);
         
-        // 3. Compute HMAC(challenge, user_id) - PROOF that client knows master_secret
         console.log('🔐 Computing HMAC locally...');
         const hmacSignature = await computeHmac(userId, challenge);
         console.log(`✅ HMAC computed: ${hmacSignature.substring(0, 32)}...`);
-        
-        // 4. Send HMAC to server for verification
+
         const verifyResponse = await this._request('/auth/login/verify_v2', {
             method: 'POST',
             body: {
                 user_id: userId,
-                challenge_response: hmacSignature  // Send HMAC, not encrypted challenge!
+                challenge_response: hmacSignature
             }
         });
         
         if (!verifyResponse.session_id) {
-            throw new Error(verifyResponse.message || 'Authentication failed');
+            throw new AuthenticationError(verifyResponse.message || 'Authentication failed');
         }
-        
-        // 5. Save the session
+
         this._sessionId = verifyResponse.session_id;
         this._expiresAt = verifyResponse.expires_at ? new Date(verifyResponse.expires_at) : null;
         
@@ -217,33 +201,28 @@ export class CryptoLoginClient {
 
     /**
      * Log the user out
-     * 
      * @returns {Promise<void>}
      */
     async logout() {
         if (!this.isAuthenticated) {
             return;
         }
-        
         try {
             await this._request('/auth/logout', {
                 method: 'POST',
                 body: { user_id: this._userId }
             });
         } catch (error) {
-            // Ignore logout errors (the session may already have expired)
-            console.warn('Logout error (ignored):', error.message);
+            console.warn('Logout error (ignored, session may already be expired):', error.message);
         }
         
-        // Reset the local status
         this._sessionId = null;
         this._expiresAt = null;
     }
 }
 
 /**
- * Help function for creating a client instance
- * 
+ * Helper function for creating a client instance
  * @param {Object} options - Client options
  * @returns {CryptoLoginClient}
  */

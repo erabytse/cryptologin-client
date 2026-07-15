@@ -25,3 +25,6 @@ docs/
 Thumbs.db
 *.test.js
 *.spec.js
+test-local.mjs
+test-local.js
+test-local.html

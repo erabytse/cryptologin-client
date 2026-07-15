@@ -6,3 +6,7 @@ coverage/
 .DS_Store
 *.swp
 *.swo
+
+test-local.mjs
+test-local.js
+test-local.html
